@@ -84,5 +84,5 @@ wcwidth>=0.2.13
 webcolors>=24.11.1
 websocket-client>=1.8.0
 python-dotenv
-streamlit-avatar
+streamlit_avatar
 widgetsnbextension>=4.0.14
