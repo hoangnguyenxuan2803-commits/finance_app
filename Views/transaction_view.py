@@ -10,16 +10,7 @@ from database.category_models import CategoryModel
 # ======================================
 # supporting functions
 # ======================================
-
-# I want to clarify the model type so I can use its methods,
-# that is why I am importing TransactionModel above.
-# and annotating the parameter type in the functions below.
-# NOTE: This is just for type hinting and does not affect runtime.
-# you can simply use 'model' without type hinting if you prefer.
-# e.g., def render_transaction_card(model, item):
-
-
-def _render_transaction_card(model: TransactionModel, item: dict):
+def _render_transaction_card(model: TransactionModel, category_model: CategoryModel , item: dict):
     """Render a single transaction as an expandable card."""
     # Format the header
     transaction_type = item.get('transaction_type', 'Unknown')
@@ -58,9 +49,6 @@ def _render_transaction_card(model: TransactionModel, item: dict):
         col_edit, col_delete, col_space = st.columns([1, 1, 3])
         
         with col_edit:
-            # if st.button("✏️ Edit", key=f"edit_{item['_id']}", use_container_width=True):
-            #     st.session_state.editing_transaction = str(item['_id'])
-            #     st.rerun()
             with col_edit:
                 # Popover instead of rerun + popup
                 with st.popover("✏️ Edit"): #, key=f"pop_edit_{item['_id']}"
@@ -82,14 +70,18 @@ def _render_transaction_card(model: TransactionModel, item: dict):
                         new_type = st.selectbox(
                             "Type",
                             ["Income", "Expense"],
-                            index=["Income", "Expense"].index(transaction["type"]),
+                            index=["Income", "Expense"].index(transaction["transaction_type"]),
                             key=f"edit_type_{item['_id']}"
                         )
+                        categories = category_model.get_categories_by_type(new_type)
+                        category_options =[c["name"] for c in categories]
 
-                        new_category = st.text_input(
+                        new_category = st.selectbox(
                             "Category",
-                            transaction["category"],
-                            key=f"edit_cat_{item['_id']}"
+                            category_options,
+                            index= category_options.index(transaction["category"])
+                            if transaction["category"] in category_options else 0,
+                            key=f"edit_category_{item['_id']}_{new_type}"
                         )
 
                         new_amount = st.number_input(
@@ -225,9 +217,6 @@ def _render_filters(model: TransactionModel):
             st.session_state.show_filters = False
             st.rerun()
 
-# This function I left category_model untyped
-# because I don't have the CategoryModel imported here.
-# and you can see it still works fine without type hinting.
 def _render_create_transaction_form(transaction_model: TransactionModel, category_model):
     """Render create transaction form."""
     st.subheader("➕ Create New Transaction")
@@ -320,7 +309,7 @@ def initialize_session_state():
 # ======================================
 # function render list of transactions
 # ======================================
-def _render_list_transaction(transaction_model: TransactionModel):
+def _render_list_transaction(transaction_model: TransactionModel, category_model):
     # Fetch transactions with load more approach
     transactions = transaction_model.get_transaction(
         advanced_filters=st.session_state.active_filters
@@ -331,7 +320,7 @@ def _render_list_transaction(transaction_model: TransactionModel):
         st.info("No transactions found. Add your first transaction to get started!")
     else:
         for item in transactions:
-            _render_transaction_card(transaction_model, item)
+            _render_transaction_card(transaction_model, category_model, item)
 
 # ======================================
 # function render main view
@@ -347,10 +336,6 @@ def render_transaction(transaction_model, category_model):
         st.warning("Please log in to view your transactions.")
         return # exist the function early
     
-    # # ---------- EDIT POPUP HERE ----------
-    # _render_edit_popup(transaction_model)
-    # st.divider()
-
     # ---------- HEADER ----------
     col_title, col_create, col_filter = st.columns([3, 1, 1])
     
@@ -388,4 +373,4 @@ def render_transaction(transaction_model, category_model):
         st.info(f"🔍 {filter_count} filter(s) active")
 
     # Render list of transactions
-    _render_list_transaction(transaction_model)
+    _render_list_transaction(transaction_model, category_model)

@@ -5,7 +5,7 @@ from database.transaction_models import TransactionModel
 class FinanceAnalyzer:
     def __init__(self,
                  transaction_model: TransactionModel):
-        self.transaction_model = TransactionModel()
+        self.transaction_model = transaction_model
     
     def get_transactions_dataframe(self):
         """Convert transactions to pandas Dataframe"""
@@ -13,7 +13,7 @@ class FinanceAnalyzer:
         if not transactions:
             return pd.DataFrame()
         df= pd.DataFrame(transactions)
-        df['date'] = pd. to_datetime(df['date'])
+        df['transaction_date'] = pd.to_datetime(df['transaction_date'])
         return df
     
     def calculate_total_by_type(self, transaction_type, start_date = None, end_date=None):
@@ -24,7 +24,9 @@ class FinanceAnalyzer:
                 )
         else:
             transactions = self.transaction_model.get_transaction()
-        total = sum(t['amount'] for t in transactions if t['type'] == transaction_type)
+        total = sum(
+            t['amount'] for t in transactions 
+            if t.get('transaction_type')== transaction_type)
         return total
     
     def get_spending_by_category(self, start_date=None, end_date=None):
@@ -42,7 +44,7 @@ class FinanceAnalyzer:
             return pd.DataFrame()
         
         # Filter only expenses
-        expenses = df[df['type'] == 'Expense']
+        expenses = df[df['transaction_type'] == 'Expense']
         
         if expenses.empty:
             return pd.DataFrame()
@@ -56,7 +58,7 @@ class FinanceAnalyzer:
     def get_daily_average(self):
         """Caculate daily average spending"""
         transactions = self.transaction_model.get_transaction()
-        expenses = [t for t in transactions if t['type'] == 'Expense']
+        expenses = [t for t in transactions if t.get('transaction_type') == 'Expense']
 
         # # approach 2:
         # advanced_filter = {"type": "Expense"}
@@ -65,9 +67,9 @@ class FinanceAnalyzer:
         if not expenses:
             return 0
         df = pd.DataFrame(expenses)
-        df['date'] = pd.to_datetime(df['date']) # make sure convert properly datetime format
+        df['transaction_date'] = pd.to_datetime(df['transaction_date']) # make sure convert properly datetime format
 
-        date_range = (df['date'].max() - df['date'].min()).days + 1
+        date_range = (df['transaction_date'].max() - df['transaction_date'].min()).days + 1
         total_spending = df['amount'].sum()
         return total_spending / date_range  if date_range > 0 else 0 
     
@@ -84,11 +86,17 @@ class FinanceAnalyzer:
         
         if df.empty:
             return pd.DataFrame()
+        # ✅ đảm bảo cột tồn tại
+        if 'transaction_date' not in df.columns:
+            return pd.DataFrame()
         
-        df['date'] = pd.to_datetime(df['date'])
-        df['month'] = df['date'].dt.to_period('M')
+        df['transaction_date'] = pd.to_datetime(df['transaction_date'])
+        df['month'] = df['transaction_date'].dt.to_period('M')
         
-        monthly_data = df.groupby(['month', 'type'])['amount'].sum().unstack(fill_value=0)
+        monthly_data = (
+            df.groupby(['month', 'transaction_type'])['amount']
+            .sum().unstack(fill_value=0)
+            )
         monthly_data.index = monthly_data.index.to_timestamp()
         
         return monthly_data

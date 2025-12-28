@@ -1,6 +1,7 @@
 # Python-generated files
 __pycache__/
 *.py[oc]
+*.py[cod]
 build/
 dist/
 wheels/
@@ -9,6 +10,13 @@ wheels/
 # Virtual environments
 .venv
 .env
+.env.local
+.env.*.local
 
 # streamlit
 .streamlit
+.streamlit/secrets.toml
+
+# IDE
+.vscode/
+.idea/

@@ -75,13 +75,22 @@ class TransactionModel:
                     "$options": "i" # case-insensitive
                 }
             })
+        return self._add_user_constraint(conditions)
+
     def _add_user_constraint(self, conditions: list) -> list:
-        conditions.append({
-            "user_id": ObjectId(self.user_id) if self.user_id else None
-        })
-        return {
-            "$and": conditions
-        }
+        # conditions.append({
+        #     "user_id": ObjectId(self.user_id) if self.user_id else None
+        # })
+        # return {
+        #     "$and": conditions
+        # }
+        if self.user_id:
+            conditions.append({"user_id": self.user_id})
+
+        if conditions:
+            return {"$and": conditions}
+
+        return {}
     
     def add_transaction(self,
                             transaction_type: str,
@@ -107,10 +116,10 @@ class TransactionModel:
 
         # 2. Create transaction object
         transaction = {
-            "transaction_type=": transaction_type,
+            "transaction_type": transaction_type,
             "category": category,
             "amount": amount,
-            "transaction_date": transaction_date,
+            "transaction_date": handler_datetime(transaction_date),
             "description": description,
             "created_at": datetime.now(),
             "last_modified": datetime.now(),
@@ -187,14 +196,6 @@ class TransactionModel:
         print("DEBUG — Query result:", result)
 
         return result
-        # try:
-        #     filter_={'_id': ObjectId(transaction_id),
-        #              'user_id': self.user_id} # added user_id constraint
-        #     result = self.collection.find_one(filter_)
-        #     return result
-        # except Exception as e:
-        #     print(f"Failed to retrive transaction: {transaction_id}, error {e}")
-        #     return None
     def get_transaction_by_date_range(self,
                                       start_date: Union[datetime,date,str],
                                       end_date:Union[datetime,date,str]
@@ -214,3 +215,80 @@ class TransactionModel:
                 "end_date": end_date       
             }
         )
+    def count_transaction_by_category_id(self, category_id: Union[str, ObjectId]) -> int:
+        """Count transactions that reference the given category ID (and belong to current user)"""
+        try:
+            cat_obj= ObjectId(category_id)
+        except Exception:
+            # invalid id -> zero affected
+            return 0
+        filter = {"category_id": cat_obj}
+        if self.user_id:
+            filter["user_id"] = self.user_id
+        return self.collection.count_documents(filter)
+    def reassign_transactions_category(self, old_catetogy_id: Union[str, ObjectId], new_category_id: Union[str, ObjectId], new_category_name: Optional[str] = None) -> int:
+        """
+        Reassign transactions that reference old_category_id to new_category_id
+        Update both category_id and category (name) fields automically via update_many
+        Returns number of modified documents
+        """
+        try:
+            old_obj = ObjectId(old_catetogy_id)
+            new_obj = ObjectId(new_category_id)
+        except Exception as e:
+            print("Invalid ObjectId in reassign:", e)
+            return 0
+        
+        filter = {"category_id": old_obj}
+        if self.user_id:
+            filter["user_id"] = self.user_id
+        
+        Update_payload = {
+            "$set": {
+                "category_id": new_obj
+            }
+        }
+        if new_category_name is not None:
+            Update_payload["$set"]["category"] = new_category_name
+        result = self.collection.update_many(filter, Update_payload)
+        return result.modified_count
+    
+    def cascade_delete_transactions_by_category(self, category_id: Union[str, ObjectId])-> int:
+        """
+        Delete all trasactions that reference given category_id (and belong to current unser)
+        Returns number of deleted documents
+        """ 
+        try:
+            cat_obj = ObjectId(category_id)
+        except Exception as e:
+            print("Invalid ObjectId in cascade_delete:", e)
+            return 0
+        filter = {"category_id": cat_obj}
+        if self.user_id:
+            filter["user_id"] = self.user_id
+        result = self.collection.delete_many(filter)
+        return result.deleted_count
+    def count_transactions_by_category(self, category_name:str)-> int:
+        return self.collection.count_documents({
+            "category": category_name,
+            "user_id": self.user_id
+        })
+    def reassign_category(self, old_category:str, new_category: str)-> int:
+        result = self.collection.update_many({
+            "category": old_category,
+            "user_id": self.user_id
+            },
+            {
+            "$set": {
+                "category": new_category,
+                "last_modified": datetime.now()
+                }
+            }
+        )
+        return result.modified_count
+    def delete_transactions_by_category(self,category_name:str)-> int:
+        result = self.collection.delete_many({
+            "category": category_name,
+            "user_id": self.user_id
+        })
+        return result.deleted_count

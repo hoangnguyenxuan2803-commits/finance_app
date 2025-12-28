@@ -41,7 +41,7 @@ class DatabaseManager:
     def _create_index(self):
         "Create indexes for better perfomance"
         self.db.transactions.create_index([("user_id",DESCENDING), ("date", DESCENDING)])
-        self.db.categories.create_index([("user_id", DESCENDING), ("type", DESCENDING), ("name", DESCENDING)],
+        self.db.categories.create_index([("user_id", DESCENDING), ("type", -1), ("name", -1)],
                                         unique = True)    
     
 
