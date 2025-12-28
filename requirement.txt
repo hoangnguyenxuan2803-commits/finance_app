@@ -64,7 +64,6 @@ pyparsing>=3.2.3
 python-dateutil>=2.9.0
 python-dotenv>=1.2.1
 PyYAML>=6.0.2
-pywin32==311; platform_system=="Windows"
 requests>=2.32.5
 scipy>=1.10
 seaborn>=0.13.2
@@ -84,5 +83,5 @@ watchdog>=6.0.0
 wcwidth>=0.2.13
 webcolors>=24.11.1
 websocket-client>=1.8.0
-
+python-dotenv
 widgetsnbextension>=4.0.14
